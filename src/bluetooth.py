@@ -9,10 +9,22 @@ BTSVC_TIME = "00001805-0000-1000-8000-00805f9b34fb"
 BTSVC_INFO = "0000180a-0000-1000-8000-00805f9b34fb"
 BTSVC_BATT = "0000180f-0000-1000-8000-00805f9b34fb"
 BTSVC_ALERT = "00001811-0000-1000-8000-00805f9b34fb"
+BTSVC_MUSIC = "00000000-78fc-48fe-8e23-433b3a1942d0"
 BTCHAR_FIRMWARE = "00002a26-0000-1000-8000-00805f9b34fb"
 BTCHAR_CURRENTTIME = "00002a2b-0000-1000-8000-00805f9b34fb"
 BTCHAR_NEWALERT = "00002a46-0000-1000-8000-00805f9b34fb"
 BTCHAR_BATTLEVEL = "00002a19-0000-1000-8000-00805f9b34fb"
+BTCHAR_MUSICSTATUS = "00000002-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICARTIST = "00000003-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICTRACKNAME = "00000004-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICALBUM = "00000005-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICPOSITION = "00000006-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICTOTALLENGTH = "00000007-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICTRACKNUM = "00000008-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICTRACKCOUNT = "00000009-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICPBSPEED = "0000000a-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICREPEAT = "0000000b-78fc-48fe-8e23-433b3a1942d0"
+BTCHAR_MUSICSHUFFLE = "0000000c-78fc-48fe-8e23-433b3a1942d0"
 
 
 def get_current_time():
@@ -34,6 +46,16 @@ def get_current_time():
         )
     )
 
+
+def packint(val):
+    return bytearray(
+        struct.pack(">I", val)
+    )
+
+def packfloat(val):
+    return bytearray(
+        struct.pack(">f", val)
+    )
 
 def get_default_adapter():
     """https://stackoverflow.com/a/49017827"""
@@ -152,6 +174,8 @@ class InfiniTimeDevice(gatt.Device):
                 battsvc = svc
             elif svc.uuid == BTSVC_ALERT:
                 alertsvc = svc
+            elif svc.uuid == BTSVC_MUSIC:
+                musicsvc = svc
 
         if timesvc:
             currenttime = next(
@@ -191,6 +215,75 @@ class InfiniTimeDevice(gatt.Device):
         
             # Get device firmware
             self.battery = int(battery_level.read_value()[0])
+        if musicsvc:
+            self.music_status = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICSTATUS
+            )
+            self.music_artist = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICARTIST
+            )
+            self.music_track_name = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICTRACKNAME
+            )
+            self.music_album = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICALBUM
+            )
+            self.music_position = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICPOSITION
+            )
+            self.music_track_length = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICTOTALLENGTH
+            )
+            self.music_track_num = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICTRACKNUM
+            )
+            self.music_track_count = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICTRACKCOUNT
+            )
+            self.music_playback_speed = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICPBSPEED
+            )
+            self.music_repeat = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICREPEAT
+            )
+            self.music_shuffle = next(
+                c
+                for c in musicsvc.characteristics
+                if c.uuid == BTCHAR_MUSICSHUFFLE
+            )
+
+            self.music_status.write_value(b'\x01')
+            self.music_artist.write_value(b'Artist')
+            self.music_track_name.write_value(b'Track Name')
+            self.music_album.write_value(b'Album')
+            self.music_position.write_value(packint(15))
+            self.music_track_length.write_value(packint(60))
+            self.music_track_num.write_value(packint(2))
+            self.music_track_count.write_value(packint(12))
+            #self.music_playback_speed.write_value(packfloat(1.0))
+            self.music_shuffle.write_value(b'\x01')
+            self.music_repeat.write_value(b'\x00')
+
         if self.thread:
             self.services_done()
 
