@@ -272,18 +272,6 @@ class InfiniTimeDevice(gatt.Device):
                 if c.uuid == BTCHAR_MUSICSHUFFLE
             )
 
-            self.music_status.write_value(b'\x01')
-            self.music_artist.write_value(b'Artist')
-            self.music_track_name.write_value(b'Track Name')
-            self.music_album.write_value(b'Album')
-            self.music_position.write_value(packint(15))
-            self.music_track_length.write_value(packint(60))
-            self.music_track_num.write_value(packint(2))
-            self.music_track_count.write_value(packint(12))
-            #self.music_playback_speed.write_value(packfloat(1.0))
-            self.music_shuffle.write_value(b'\x01')
-            self.music_repeat.write_value(b'\x00')
-
         if self.thread:
             self.services_done()
 
@@ -304,6 +292,18 @@ class InfiniTimeDevice(gatt.Device):
         # arr = bytearray(message, "utf-8")
         # self.new_alert_characteristic.write_value(arr)
         self.new_alert.write_value(msg)
+
+    def send_music_update(self, music_dict):
+        if 'playing' in music_dict: self.music_status.write_value(music_dict['playing'] and b'\x01' or b'\x00')
+        if 'artist' in music_dict: self.music_artist.write_value(music_dict['artist'].encode('utf-8'))
+        if 'track' in music_dict: self.music_track_name.write_value(music_dict['track'].encode('utf-8'))
+        if 'album' in music_dict: self.music_album.write_value(music_dict['album'].encode('utf-8'))
+        if 'position' in music_dict: self.music_position.write_value(packint(music_dict['position']))
+        if 'length' in music_dict: self.music_track_length.write_value(packint(music_dict['length']))
+        if 'tracknum' in music_dict: self.music_track_num.write_value(packint(music_dict['tracknum']))
+        if 'trackcount' in music_dict: self.music_track_count.write_value(packint(music_dict['trackcount']))
+        if 'shuffle' in music_dict: self.music_shuffle.write_value(music_dict['shuffle'] and b'\x01' or b'\x00')
+        if 'repeat' in music_dict: self.music_repeat.write_value(music_dict['repeat'] and b'\x01' or b'\x00')
 
 
 class BluetoothDisabled(Exception):
