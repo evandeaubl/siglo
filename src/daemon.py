@@ -41,7 +41,8 @@ class daemon:
             bus.add_signal_receiver(self.music_update,
                 path='/org/mpris/MediaPlayer2',
                 dbus_interface='org.freedesktop.DBus.Properties',
-                signal_name='PropertiesChanged'
+                signal_name='PropertiesChanged',
+                sender_keyword='sender'
             )
         except dbus.exceptions.DBusException as e:
             print(e)
@@ -60,8 +61,8 @@ class daemon:
             print(alert_dict)
             self.device.send_notification(alert_dict)
 
-    def music_update(self, interface_name, params, unknown):
-        print(params)
+    def music_update(self, interface_name, params, unknown, **kwargs):
+        sender = kwargs.get('sender', None)
         music_update = {}
         if 'Metadata' in params:
             if 'xesam:artist' in params['Metadata']:
@@ -77,6 +78,13 @@ class daemon:
         if 'PlaybackStatus' in params:
             if str(params['PlaybackStatus']) == 'Playing':
                 music_update['playing'] = True
+                # force position update to work around Infinitime bug (?)
+                # FIXME doing this synchronously is probably not a good idea
+                if sender is not None:
+                    bus = dbus.SessionBus()
+                    player = bus.get_object(sender, '/org/mpris/MediaPlayer2')
+                    properties_iface = dbus.Interface(player, 'org.freedesktop.DBus.Properties')
+                    music_update['position'] = int(int(properties_iface.Get('org.mpris.MediaPlayer2.Player', 'Position')) / 1000000)
             else:
                 music_update['playing'] = False
         if len(music_update) > 0:
