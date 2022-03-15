@@ -15,15 +15,17 @@ class daemon:
         self.mainloop = glib.MainLoop()
 
     def start(self):
+        DBusGMainLoop(set_as_default=True)
         self.device.connect()
         self.scan_for_notifications()
+        self.scan_for_music()
+        self.mainloop.run()
 
     def stop(self):
         self.mainloop.quit()
         self.device.disconnect()
 
     def scan_for_notifications(self):
-        DBusGMainLoop(set_as_default=True)
         monitor_bus = dbus.SessionBus(private=True)
         try:
             dbus_monitor_iface = dbus.Interface(monitor_bus.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus'), dbus_interface='org.freedesktop.DBus.Monitoring')
@@ -32,7 +34,18 @@ class daemon:
             print(e)
             return
         monitor_bus.add_message_filter(self.notifications)
-        self.mainloop.run()
+
+    def scan_for_music(self):
+        bus = dbus.SessionBus()
+        try:
+            bus.add_signal_receiver(self.music_update,
+                path='/org/mpris/MediaPlayer2',
+                dbus_interface='org.freedesktop.DBus.Properties',
+                signal_name='PropertiesChanged'
+            )
+        except dbus.exceptions.DBusException as e:
+            print(e)
+            return
 
     def notifications(self, bus, message):
         alert_dict = {}
@@ -47,3 +60,24 @@ class daemon:
             print(alert_dict)
             self.device.send_notification(alert_dict)
 
+    def music_update(self, interface_name, params, unknown):
+        print(params)
+        music_update = {}
+        if 'Metadata' in params:
+            if 'xesam:artist' in params['Metadata']:
+                music_update['artist'] = str(params['Metadata']['xesam:artist'][0])
+            if 'xesam:title' in params['Metadata']:
+                music_update['track'] = str(params['Metadata']['xesam:title'])
+            if 'xesam:album' in params['Metadata']:
+                music_update['album'] = str(params['Metadata']['xesam:album'])
+            if 'xesam:trackNumber' in params['Metadata']:
+                music_update['track_number'] = int(params['Metadata']['xesam:trackNumber'])
+            if 'mpris:length' in params['Metadata']:
+                music_update['length'] = int(int(params['Metadata']['mpris:length']) / 1000000)
+        if 'PlaybackStatus' in params:
+            if str(params['PlaybackStatus']) == 'Playing':
+                music_update['playing'] = True
+            else:
+                music_update['playing'] = False
+        if len(music_update) > 0:
+            self.device.send_music_update(music_update)
